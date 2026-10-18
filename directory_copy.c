@@ -6,15 +6,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 static char *join_paths(const char *parent, const char *name)
 {
     size_t parent_len = strlen(parent);
     size_t name_len = strlen(name);
     int need_slash = parent_len > 0 && parent[parent_len - 1] != '/';
-    size_t total = parent_len + (size_t)need_slash + name_len + 1;
 
+    size_t total = parent_len + (size_t)need_slash + name_len + 1;
     char *path = malloc(total);
+
     if (path == NULL) {
         perror("malloc");
         return NULL;
@@ -22,7 +24,24 @@ static char *join_paths(const char *parent, const char *name)
 
     snprintf(path, total, "%s%s%s",
              parent, need_slash ? "/" : "", name);
+
     return path;
+}
+
+static int is_same_or_child_path(const char *src, const char *dest)
+{
+    size_t src_len = strlen(src);
+
+    if (strcmp(src, dest) == 0) {
+        return 1;
+    }
+
+    if (src_len == 1 && src[0] == '/') {
+        return dest[0] == '/';
+    }
+
+    return strncmp(src, dest, src_len) == 0 &&
+           dest[src_len] == '/';
 }
 
 int copy_directory(const char *src, const char *dest)
@@ -43,6 +62,28 @@ int copy_directory(const char *src, const char *dest)
         fprintf(stderr, "Destination is not a directory: %s\n", dest);
         return -1;
     }
+
+    char *real_src = realpath(src, NULL);
+    char *real_dest = realpath(dest, NULL);
+
+    if (real_src == NULL || real_dest == NULL) {
+        perror("realpath");
+        free(real_src);
+        free(real_dest);
+        return -1;
+    }
+
+    if (is_same_or_child_path(real_src, real_dest)) {
+        fprintf(stderr,
+                "Error: destination cannot be the source directory "
+                "or one of its subdirectories.\n");
+        free(real_src);
+        free(real_dest);
+        return -1;
+    }
+
+    free(real_src);
+    free(real_dest);
 
     DIR *dir = opendir(src);
     if (dir == NULL) {
