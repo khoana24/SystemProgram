@@ -1,9 +1,9 @@
-
 #include "mycp.h"
 
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 int copy_file_data(const char *src, const char *dest)
@@ -12,16 +12,44 @@ int copy_file_data(const char *src, const char *dest)
     int dest_fd = -1;
     int result = -1;
     char buffer[4096];
+    struct stat src_stat;
+    struct stat dest_stat;
 
-    src_fd = open(src, O_RDONLY);
+    src_fd = open(src, O_RDONLY | O_NOFOLLOW);
     if (src_fd == -1) {
         perror(src);
         goto cleanup;
     }
 
-    dest_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fstat(src_fd, &src_stat) == -1) {
+        perror("fstat source");
+        goto cleanup;
+    }
+
+    if (!S_ISREG(src_stat.st_mode)) {
+        fprintf(stderr, "Source is not a regular file: %s\n", src);
+        goto cleanup;
+    }
+
+    dest_fd = open(dest, O_WRONLY | O_CREAT | O_NOFOLLOW, 0600);
     if (dest_fd == -1) {
         perror(dest);
+        goto cleanup;
+    }
+
+    if (fstat(dest_fd, &dest_stat) == -1) {
+        perror("fstat destination");
+        goto cleanup;
+    }
+
+    if (src_stat.st_dev == dest_stat.st_dev &&
+        src_stat.st_ino == dest_stat.st_ino) {
+        fprintf(stderr, "Source and destination are the same file\n");
+        goto cleanup;
+    }
+
+    if (ftruncate(dest_fd, 0) == -1) {
+        perror("ftruncate");
         goto cleanup;
     }
 
