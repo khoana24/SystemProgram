@@ -1,0 +1,27 @@
+# Compiled executables and object files
+/filecopy
+/tests/fault_test
+*.o
+*.a
+*.so
+
+# Generated demo datasets and run output
+/copyflow-demo-*/
+/demo_source/
+/demo_backup/
+/DEMO_TERMINAL.txt
+/TEST_RESULTS.txt
+*.log
+
+# Python cache and local archives
+__pycache__/
+*.py[cod]
+*.zip
+*.tar.gz
+
+# Local editor/OS files
+.vscode/
+.idea/
+.DS_Store
+*~
+*.swp
